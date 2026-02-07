@@ -2,8 +2,8 @@
 ### 👋 你好，我是 Jackie (@PyXMR2025)  
 Hi, I'm Jackie (@PyXMR2025)  
 
-一名深耕技术的中国学生，专注分享 **区块链、智能合约、以太坊、CI/CD、开源项目、IT基础设施** 领域的深度解析与实操笔记，个人博客持续输出硬核干货～  
-A tech-enthusiast from China, focusing on in-depth analysis & hands-on notes of **blockchain, smart contracts, Ethereum, CI/CD, open-source projects, and IT infrastructure** — with consistent hard-core content updates on my personal blog!  
+一名深耕技术的中国学生，专注分享 **区块链、智能合约、以太坊、CI/CD、开源项目、IT基础设施、业余无线电** 领域的深度解析与实操笔记，个人博客持续输出硬核干货～  
+A tech-enthusiast from China, focusing on in-depth analysis & hands-on notes of **blockchain, smart contracts, Ethereum, CI/CD, open-source projects, HAM, and IT infrastructure** — with consistent hard-core content updates on my personal blog!  
 
 ---
 
