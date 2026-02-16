@@ -35,9 +35,9 @@ jobs:
       - name: Checkout blog repository
         uses: actions/checkout@v4
         with:
-          repository: pyxmr2025/blog
-          path: blog  # 克隆到当前工作目录的blog子文件夹
-          token: ${{ secrets.BLOG_REPO_PAT }}  # 需要你创建PAT并添加为仓库秘钥
+          repository: PyXMR2025/blog  # 修正为正确的大小写仓库名
+          path: blog
+          token: ${{ secrets.BLOG_REPO_PAT }}
           persist-credentials: true
 
       - name: Set up Python
@@ -200,7 +200,8 @@ jobs:
           # 提交修改
           git commit -m "🔄 Sync blog posts - $(date '+%Y-%m-%d %H:%M:%S') (CST)"
           
-          # 推送新分支到远程
+          # 推送新分支到远程（使用正确的仓库地址）
+          git remote set-url origin https://github.com/PyXMR2025/blog.git
           git push origin $BRANCH_NAME || (sleep 5 && git push origin $BRANCH_NAME) || (sleep 10 && git push origin $BRANCH_NAME)
           
           # 安装GitHub CLI（用于创建PR）
@@ -209,8 +210,12 @@ jobs:
           # 配置gh使用PAT认证
           echo "${{ secrets.BLOG_REPO_PAT }}" | gh auth login --with-token
           
-          # 创建Pull Request
+          # 验证gh认证状态
+          gh auth status
+          
+          # 创建Pull Request（指定完整仓库地址，避免重定向问题）
           gh pr create \
+            --repo PyXMR2025/blog \
             --base main \
             --head $BRANCH_NAME \
             --title "🔄 Sync blog posts - $(date '+%Y-%m-%d %H:%M:%S') (CST)" \
@@ -222,6 +227,13 @@ jobs:
           This PR is created automatically by GitHub Actions."
           
           echo "✅ PR created successfully for blog repository"
+          
+          # 错误处理：如果PR创建失败，输出链接手动创建
+          if [ $? -ne 0 ]; then
+              echo "⚠️ PR创建失败，可手动访问以下链接创建："
+              echo "https://github.com/PyXMR2025/blog/pull/new/$BRANCH_NAME"
+              exit 1
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.BLOG_REPO_PAT }}
         if: success()
