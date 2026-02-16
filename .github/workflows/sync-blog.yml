@@ -38,7 +38,7 @@ jobs:
           
       - name: Fetch and update blog posts
         run: |
-          python << 'EOF'
+          python << 'PYEOF'
           import feedparser
           import re
           from datetime import datetime
@@ -77,13 +77,14 @@ jobs:
                       date_prefix = f"📅 {post['date']} " if post['date'] else ""
                       post_lines.append(f"- {date_prefix}[{post['title']}]({post['link']})")
                   
+                  posts_text = "\n".join(post_lines)
                   new_section = f"""<!-- BLOG-POST-LIST:START -->
-          {"\n".join(post_lines)}
-          <!-- BLOG-POST-LIST:END -->"""
+{posts_text}
+<!-- BLOG-POST-LIST:END -->"""
               else:
                   new_section = """<!-- BLOG-POST-LIST:START -->
-          - ❌ 无法获取博客文章 / Unable to fetch blog posts
-          <!-- BLOG-POST-LIST:END -->"""
+- ❌ 无法获取博客文章 / Unable to fetch blog posts
+<!-- BLOG-POST-LIST:END -->"""
               
               with open(README_PATH, 'r', encoding='utf-8') as f:
                   content = f.read()
@@ -94,12 +95,12 @@ jobs:
               with open(README_PATH, 'w', encoding='utf-8') as f:
                   f.write(new_content)
               
-              print(f"✅ Successfully updated {len(posts) if posts else 0} blog posts")
+              print(f"Successfully updated {len(posts) if posts else 0} blog posts")
               
           except Exception as e:
-              print(f"❌ Error: {{e}}")
+              print(f"Error: {e}")
               raise
-          EOF
+          PYEOF
           
       - name: Commit and push changes
         run: |
