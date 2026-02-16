@@ -35,7 +35,7 @@ jobs:
       - name: Checkout blog repository
         uses: actions/checkout@v4
         with:
-          repository: PyXMR2025/blog  # 修正为正确的大小写仓库名
+          repository: PyXMR2025/blog
           path: blog
           token: ${{ secrets.BLOG_REPO_PAT }}
           persist-credentials: true
@@ -204,36 +204,40 @@ jobs:
           git remote set-url origin https://github.com/PyXMR2025/blog.git
           git push origin $BRANCH_NAME || (sleep 5 && git push origin $BRANCH_NAME) || (sleep 10 && git push origin $BRANCH_NAME)
           
-          # 安装GitHub CLI（用于创建PR）
-          type -p gh >/dev/null || (sudo apt update && sudo apt install gh -y)
+          # 使用GitHub REST API创建PR（不依赖gh工具）
+          PR_TITLE="🔄 Sync blog posts - $(date '+%Y-%m-%d %H:%M:%S') (CST)"
+          PR_BODY="Automatically synced blog posts from RSS feed.
+
+- Updated blog post list in source/about/index.md
+- Sync time: $(date '+%Y-%m-%d %H:%M:%S') (CST)
+
+This PR is created automatically by GitHub Actions."
           
-          # 配置gh使用PAT认证
-          echo "${{ secrets.BLOG_REPO_PAT }}" | gh auth login --with-token
+          # 构造API请求
+          RESPONSE=$(curl -s -X POST \
+            -H "Authorization: token ${{ secrets.BLOG_REPO_PAT }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/PyXMR2025/blog/pulls \
+            -d '{
+              "title": "'"$PR_TITLE"'",
+              "body": "'"$PR_BODY"'",
+              "head": "'"$BRANCH_NAME"'",
+              "base": "main"
+            }')
           
-          # 验证gh认证状态
-          gh auth status
-          
-          # 创建Pull Request（指定完整仓库地址，避免重定向问题）
-          gh pr create \
-            --repo PyXMR2025/blog \
-            --base main \
-            --head $BRANCH_NAME \
-            --title "🔄 Sync blog posts - $(date '+%Y-%m-%d %H:%M:%S') (CST)" \
-            --body "Automatically synced blog posts from RSS feed.
-          
-          - Updated blog post list in source/about/index.md
-          - Sync time: $(date '+%Y-%m-%d %H:%M:%S') (CST)
-          
-          This PR is created automatically by GitHub Actions."
-          
-          echo "✅ PR created successfully for blog repository"
-          
-          # 错误处理：如果PR创建失败，输出链接手动创建
-          if [ $? -ne 0 ]; then
-              echo "⚠️ PR创建失败，可手动访问以下链接创建："
+          # 检查PR创建结果
+          if echo "$RESPONSE" | grep -q '"number":'; then
+              PR_NUMBER=$(echo "$RESPONSE" | grep -o '"number": [0-9]*' | grep -o '[0-9]*')
+              PR_URL="https://github.com/PyXMR2025/blog/pull/$PR_NUMBER"
+              echo "✅ PR创建成功！PR地址: $PR_URL"
+          else
+              echo "⚠️ PR创建失败，响应信息："
+              echo "$RESPONSE"
+              echo "📝 可手动访问以下链接创建PR："
               echo "https://github.com/PyXMR2025/blog/pull/new/$BRANCH_NAME"
               exit 1
           fi
         env:
-          GITHUB_TOKEN: ${{ secrets.BLOG_REPO_PAT }}
+          # 清空GITHUB_TOKEN，避免干扰
+          GITHUB_TOKEN: ""
         if: success()
