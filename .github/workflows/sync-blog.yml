@@ -18,7 +18,6 @@ permissions:
 jobs:
   update-readme:
     runs-on: ubuntu-latest
-    # 增加重试机制提升稳定性
     strategy:
       fail-fast: false
       matrix:
@@ -147,8 +146,7 @@ jobs:
               try:
                   with open(README_PATH, 'r', encoding='utf-8') as f:
                       content = f.read()
-                  new_content = re.sub(r'<!-- BLOG-POST-LIST:START -->.*?<!-- BLOG-POST-LIST:END -->', 
-                                      error_section, content, flags=re.DOTALL)
+                  new_content = re.sub(r'<!-- BLOG-POST-LIST:START -->.*?<!-- BLOG-POST-LIST:END -->', error_section, content, flags=re.DOTALL)
                   with open(README_PATH, 'w', encoding='utf-8') as f:
                       f.write(new_content)
               except:
@@ -173,5 +171,4 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # 即使前面步骤有警告，也执行push（除非前面步骤失败）
         if: success()
