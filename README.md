@@ -29,7 +29,6 @@
 <img src="https://img.shields.io/badge/CI%2FCD-%E8%87%AA%E5%8A%A8%E5%8C%96-3c2e9e?style=for-the-badge&logo=githubactions&logoColor=white" alt="CI/CD">
 <img src="https://img.shields.io/badge/OpenSource-%E5%BC%80%E6%BA%90-2f2587?style=for-the-badge&logo=github&logoColor=white" alt="Open Source">
 <img src="https://img.shields.io/badge/IT%20Infrastructure-IT%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%9E%84-2515a5?style=for-the-badge&logo=linux&logoColor=white" alt="IT Infrastructure">
-<img src="https://img.shields.io/badge/HAM-%E4%B9%90%E6%9C%AC%E6%97%A5%E7%94%B5%E4%BF%A1-1e1a96?style=for-the-badge&logo=radio&logoColor=white" alt="HAM Radio">
 
 </div>
 
