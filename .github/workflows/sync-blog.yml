@@ -170,18 +170,58 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         if: success()
 
-      - name: Commit and push blog repo changes
+      - name: Create PR for blog repo changes
         run: |
+          # 进入blog仓库目录
           cd blog
+          
+          # 配置git用户信息
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
+          
+          # 拉取最新代码（避免分支冲突）
+          git pull origin main
+          
+          # 创建新分支（使用时间戳确保分支名唯一）
+          BRANCH_NAME="sync-blog-posts-$(date +%Y%m%d%H%M%S)"
+          git checkout -b $BRANCH_NAME
+          
+          # 添加修改的文件
           git add source/about/index.md
+          
+          # 检查是否有修改
           if git diff --cached --quiet; then
-              echo "ℹ️ Blog仓库无修改，跳过提交"
-          else
-              git commit -m "🔄 Sync blog posts - $(date '+%Y-%m-%d %H:%M:%S') (CST)"
-              git push || (sleep 5 && git push) || (sleep 10 && git push)
+              echo "ℹ️ Blog仓库无修改，跳过PR创建"
+              git checkout main
+              git branch -D $BRANCH_NAME
+              exit 0
           fi
+          
+          # 提交修改
+          git commit -m "🔄 Sync blog posts - $(date '+%Y-%m-%d %H:%M:%S') (CST)"
+          
+          # 推送新分支到远程
+          git push origin $BRANCH_NAME || (sleep 5 && git push origin $BRANCH_NAME) || (sleep 10 && git push origin $BRANCH_NAME)
+          
+          # 安装GitHub CLI（用于创建PR）
+          type -p gh >/dev/null || (sudo apt update && sudo apt install gh -y)
+          
+          # 配置gh使用PAT认证
+          echo "${{ secrets.BLOG_REPO_PAT }}" | gh auth login --with-token
+          
+          # 创建Pull Request
+          gh pr create \
+            --base main \
+            --head $BRANCH_NAME \
+            --title "🔄 Sync blog posts - $(date '+%Y-%m-%d %H:%M:%S') (CST)" \
+            --body "Automatically synced blog posts from RSS feed.
+          
+          - Updated blog post list in source/about/index.md
+          - Sync time: $(date '+%Y-%m-%d %H:%M:%S') (CST)
+          
+          This PR is created automatically by GitHub Actions."
+          
+          echo "✅ PR created successfully for blog repository"
         env:
           GITHUB_TOKEN: ${{ secrets.BLOG_REPO_PAT }}
         if: success()
