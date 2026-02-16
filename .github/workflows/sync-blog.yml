@@ -2,7 +2,7 @@ name: Sync Blog Posts
 
 on:
   schedule:
-    - cron: '0 8 * * *'  # 每天 UTC 8:00 (北京时间 16:00)
+    - cron: '0 8 * * *'
   workflow_dispatch:
   push:
     branches:
@@ -29,78 +29,57 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
+          cache: 'none'
           
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install feedparser
+        run: python -m pip install --upgrade pip feedparser
           
       - name: Fetch and update blog posts
         run: |
-          python << 'PYEOF'
-          import feedparser
-          import re
-          from datetime import datetime
-          
-          RSS_URL = "https://jackie.openenet.cn/atom.xml"
-          README_PATH = "README.md"
-          MAX_POSTS = 5
-          
-          try:
-              feed = feedparser.parse(RSS_URL)
-              posts = []
-              
-              for entry in feed.entries[:MAX_POSTS]:
-                  title = entry.get('title', 'No Title').strip()
-                  link = entry.get('link', '#').strip()
-                  published = entry.get('published', '')
-                  
-                  if published:
-                      try:
-                          date_obj = datetime.strptime(published[:10], '%Y-%m-%d')
-                          date_str = date_obj.strftime('%Y-%m-%d')
-                      except:
-                          date_str = published[:10]
-                  else:
-                      date_str = ''
-                  
-                  posts.append({
-                      'title': title,
-                      'link': link,
-                      'date': date_str
-                  })
-              
-              if posts:
-                  post_lines = []
-                  for post in posts:
-                      date_prefix = f"📅 {post['date']} " if post['date'] else ""
-                      post_lines.append(f"- {date_prefix}[{post['title']}]({post['link']})")
-                  
-                  posts_text = "\n".join(post_lines)
-                  new_section = f"""<!-- BLOG-POST-LIST:START -->
-{posts_text}
-<!-- BLOG-POST-LIST:END -->"""
-              else:
-                  new_section = """<!-- BLOG-POST-LIST:START -->
-- ❌ 无法获取博客文章 / Unable to fetch blog posts
-<!-- BLOG-POST-LIST:END -->"""
-              
-              with open(README_PATH, 'r', encoding='utf-8') as f:
-                  content = f.read()
-              
-              pattern = r'<!-- BLOG-POST-LIST:START -->.*?<!-- BLOG-POST-LIST:END -->'
-              new_content = re.sub(pattern, new_section, content, flags=re.DOTALL)
-              
-              with open(README_PATH, 'w', encoding='utf-8') as f:
-                  f.write(new_content)
-              
-              print(f"Successfully updated {len(posts) if posts else 0} blog posts")
-              
-          except Exception as e:
-              print(f"Error: {e}")
-              raise
-          PYEOF
+          python -c "
+import feedparser
+import re
+
+rss_url = 'https://jackie.openenet.cn/atom.xml'
+readme_path = 'README.md'
+max_posts = 5
+
+feed = feedparser.parse(rss_url)
+posts = []
+
+for entry in feed.entries[:max_posts]:
+    title = entry.get('title', 'No Title').strip()
+    link = entry.get('link', '#').strip()
+    published = entry.get('published', '')
+    
+    if published and len(published) >= 10:
+        date_str = published[:10]
+    else:
+        date_str = ''
+    
+    posts.append({'title': title, 'link': link, 'date': date_str})
+
+if posts:
+    post_lines = []
+    for post in posts:
+        prefix = '📅 ' + post['date'] + ' ' if post['date'] else ''
+        post_lines.append('- ' + prefix + '[' + post['title'] + '](' + post['link'] + ')')
+    posts_text = '\n'.join(post_lines)
+    new_section = '<!-- BLOG-POST-LIST:START -->\n' + posts_text + '\n<!-- BLOG-POST-LIST:END -->'
+else:
+    new_section = '<!-- BLOG-POST-LIST:START -->\n- ❌ 无法获取博客文章\n<!-- BLOG-POST-LIST:END -->'
+
+with open(readme_path, 'r', encoding='utf-8') as f:
+    content = f.read()
+
+pattern = r'<!-- BLOG-POST-LIST:START -->.*?<!-- BLOG-POST-LIST:END -->'
+new_content = re.sub(pattern, new_section, content, flags=re.DOTALL)
+
+with open(readme_path, 'w', encoding='utf-8') as f:
+    f.write(new_content)
+
+print('Successfully updated', len(posts), 'blog posts')
+"
           
       - name: Commit and push changes
         run: |
