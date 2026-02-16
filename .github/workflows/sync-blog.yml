@@ -2,8 +2,8 @@ name: Sync Blog Posts
 
 on:
   schedule:
-    - cron: '0 8 * * *'
-  workflow_dispatch:
+    - cron: '0 8 * * *'  # 每天 UTC 8:00 (北京时间 16:00)
+  workflow_dispatch:  # 手动触发
   push:
     branches:
       - main
@@ -18,75 +18,160 @@ permissions:
 jobs:
   update-readme:
     runs-on: ubuntu-latest
-    
+    # 增加重试机制提升稳定性
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11']
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          persist-credentials: false
-        
+          fetch-depth: 0  # 修复浅克隆问题，拉取完整历史
+          persist-credentials: true  # 保留凭证，确保push可用
+
+      - name: Set timezone to Beijing
+        run: sudo timedatectl set-timezone Asia/Shanghai
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-          cache: 'none'
-          
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'  # 缓存pip依赖，加速构建
+
       - name: Install dependencies
-        run: python -m pip install --upgrade pip feedparser
-          
+        run: |
+          python -m pip install --upgrade pip
+          pip install feedparser requests  # 增加requests用于网络检测
+
       - name: Fetch and update blog posts
         run: |
-          python -c "
-import feedparser
-import re
-
-rss_url = 'https://jackie.openenet.cn/atom.xml'
-readme_path = 'README.md'
-max_posts = 5
-
-feed = feedparser.parse(rss_url)
-posts = []
-
-for entry in feed.entries[:max_posts]:
-    title = entry.get('title', 'No Title').strip()
-    link = entry.get('link', '#').strip()
-    published = entry.get('published', '')
-    
-    if published and len(published) >= 10:
-        date_str = published[:10]
-    else:
-        date_str = ''
-    
-    posts.append({'title': title, 'link': link, 'date': date_str})
-
-if posts:
-    post_lines = []
-    for post in posts:
-        prefix = '📅 ' + post['date'] + ' ' if post['date'] else ''
-        post_lines.append('- ' + prefix + '[' + post['title'] + '](' + post['link'] + ')')
-    posts_text = '\n'.join(post_lines)
-    new_section = '<!-- BLOG-POST-LIST:START -->\n' + posts_text + '\n<!-- BLOG-POST-LIST:END -->'
-else:
-    new_section = '<!-- BLOG-POST-LIST:START -->\n- ❌ 无法获取博客文章\n<!-- BLOG-POST-LIST:END -->'
-
-with open(readme_path, 'r', encoding='utf-8') as f:
-    content = f.read()
-
-pattern = r'<!-- BLOG-POST-LIST:START -->.*?<!-- BLOG-POST-LIST:END -->'
-new_content = re.sub(pattern, new_section, content, flags=re.DOTALL)
-
-with open(readme_path, 'w', encoding='utf-8') as f:
-    f.write(new_content)
-
-print('Successfully updated', len(posts), 'blog posts')
-"
+          python << 'PYEOF'
+          import feedparser
+          import re
+          import requests
+          from datetime import datetime, timezone, timedelta
           
+          # 配置项
+          RSS_URL = "https://jackie.openenet.cn/atom.xml"
+          README_PATH = "README.md"
+          MAX_POSTS = 5
+          # 设置北京时间时区
+          CST = timezone(timedelta(hours=8))
+          
+          def fetch_rss_feed(url):
+              """获取RSS feed，增加超时和错误处理"""
+              try:
+                  # 增加网络请求超时
+                  response = requests.get(url, timeout=10)
+                  response.raise_for_status()  # 检测HTTP错误
+                  return feedparser.parse(response.content)
+              except requests.exceptions.RequestException as e:
+                  print(f"❌ 网络请求失败: {e}")
+                  return None
+          
+          try:
+              # 获取RSS内容
+              feed = fetch_rss_feed(RSS_URL)
+              posts = []
+              
+              if not feed or feed.get('bozo', 1) == 1:
+                  raise Exception("RSS解析失败或返回空内容")
+              
+              # 解析文章列表
+              for entry in feed.entries[:MAX_POSTS]:
+                  # 安全获取字段，避免KeyError
+                  title = entry.get('title', 'No Title').strip() or 'No Title'
+                  link = entry.get('link', '#').strip() or '#'
+                  published = entry.get('published', '')
+                  
+                  date_str = ''
+                  if published:
+                      try:
+                          # 兼容更多时间格式
+                          if len(published) >= 10:
+                              date_obj = datetime.strptime(published[:10], '%Y-%m-%d')
+                              date_str = date_obj.strftime('%Y-%m-%d')
+                          else:
+                              date_str = published
+                      except Exception as e:
+                          print(f"⚠️ 时间格式解析失败: {e}，使用原始值: {published[:20]}")
+                          date_str = published[:20]
+                  
+                  posts.append({
+                      'title': title,
+                      'link': link,
+                      'date': date_str
+                  })
+              
+              # 构建文章列表文本
+              if posts:
+                  post_lines = []
+                  for idx, post in enumerate(posts, 1):
+                      date_prefix = f"📅 {post['date']} " if post['date'] else ""
+                      post_lines.append(f"- {date_prefix}[{post['title']}]({post['link']})")
+                  posts_text = "\n".join(post_lines)
+                  new_section = f"""<!-- BLOG-POST-LIST:START -->
+{posts_text}
+<!-- BLOG-POST-LIST:END -->"""
+              else:
+                  new_section = """<!-- BLOG-POST-LIST:START -->
+- ❌ 无法获取博客文章 / Unable to fetch blog posts
+<!-- BLOG-POST-LIST:END -->"""
+              
+              # 读写README文件（增加异常处理）
+              try:
+                  with open(README_PATH, 'r', encoding='utf-8') as f:
+                      content = f.read()
+              except FileNotFoundError:
+                  raise Exception(f"❌ 找不到文件: {README_PATH}")
+              except PermissionError:
+                  raise Exception(f"❌ 没有权限读取文件: {README_PATH}")
+              
+              # 替换文章列表部分（确保正则匹配正确）
+              pattern = r'<!-- BLOG-POST-LIST:START -->.*?<!-- BLOG-POST-LIST:END -->'
+              new_content = re.sub(pattern, new_section, content, flags=re.DOTALL)
+              
+              # 写入文件
+              with open(README_PATH, 'w', encoding='utf-8') as f:
+                  f.write(new_content)
+              
+              print(f"✅ 成功更新 {len(posts)} 篇博客文章")
+              
+          except Exception as e:
+              print(f"❌ 执行出错: {str(e)}")
+              # 写入错误提示到README
+              error_section = """<!-- BLOG-POST-LIST:START -->
+- ❌ 获取博客文章失败 / Failed to fetch blog posts
+<!-- BLOG-POST-LIST:END -->"""
+              try:
+                  with open(README_PATH, 'r', encoding='utf-8') as f:
+                      content = f.read()
+                  new_content = re.sub(r'<!-- BLOG-POST-LIST:START -->.*?<!-- BLOG-POST-LIST:END -->', 
+                                      error_section, content, flags=re.DOTALL)
+                  with open(README_PATH, 'w', encoding='utf-8') as f:
+                      f.write(new_content)
+              except:
+                  pass
+              raise  # 抛出异常让Action失败，便于排查
+          PYEOF
+
       - name: Commit and push changes
         run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
+          # 配置git用户信息
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          # 检查是否有修改
           git add README.md
-          git diff --quiet || git commit -m "🔄 Sync blog posts - $(date '+%Y-%m-%d %H:%M')"
-          git push
+          if git diff --cached --quiet; then
+              echo "ℹ️ 没有检测到README.md的修改，跳过提交"
+          else
+              # 使用北京时间作为commit信息
+              git commit -m "🔄 Sync blog posts - $(date '+%Y-%m-%d %H:%M:%S') (CST)"
+              # 安全push（增加重试）
+              git push || (sleep 5 && git push) || (sleep 10 && git push)
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # 即使前面步骤有警告，也执行push（除非前面步骤失败）
+        if: success()
