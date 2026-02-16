@@ -23,7 +23,7 @@ jobs:
       matrix:
         python-version: ['3.11']
     steps:
-      - name: Checkout repository
+      - name: Checkout current repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -31,6 +31,14 @@ jobs:
 
       - name: Set timezone to Beijing
         run: sudo timedatectl set-timezone Asia/Shanghai
+
+      - name: Checkout blog repository
+        uses: actions/checkout@v4
+        with:
+          repository: pyxmr2025/blog
+          path: blog  # 克隆到当前工作目录的blog子文件夹
+          token: ${{ secrets.BLOG_REPO_PAT }}  # 需要你创建PAT并添加为仓库秘钥
+          persist-credentials: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -50,10 +58,15 @@ jobs:
           import re
           import requests
           from datetime import datetime, timezone, timedelta
+          import os
 
           # 配置项
           RSS_URL = "https://jackie.openenet.cn/atom.xml"
-          README_PATH = "README.md"
+          # 要更新的文件列表
+          TARGET_FILES = [
+              "README.md",  # 当前仓库的README
+              "blog/source/about/index.md"  # blog仓库的index.md
+          ]
           MAX_POSTS = 5
           CST = timezone(timedelta(hours=8))
 
@@ -65,6 +78,29 @@ jobs:
               except requests.exceptions.RequestException as e:
                   print(f"❌ 网络请求失败: {e}")
                   return None
+
+          def update_file_content(file_path, new_section):
+              """通用的文件更新函数"""
+              if not os.path.exists(file_path):
+                  print(f"⚠️ 文件不存在: {file_path}")
+                  return False
+              
+              try:
+                  with open(file_path, 'r', encoding='utf-8') as f:
+                      content = f.read()
+                  
+                  # 替换指定区域的内容
+                  pattern = r'<!-- BLOG-POST-LIST:START -->.*?<!-- BLOG-POST-LIST:END -->'
+                  new_content = re.sub(pattern, new_section, content, flags=re.DOTALL)
+                  
+                  with open(file_path, 'w', encoding='utf-8') as f:
+                      f.write(new_content)
+                  
+                  print(f"✅ 成功更新文件: {file_path}")
+                  return True
+              except Exception as e:
+                  print(f"❌ 更新文件失败 {file_path}: {e}")
+                  return False
 
           try:
               feed = fetch_rss_feed(RSS_URL)
@@ -92,7 +128,7 @@ jobs:
 
                   posts.append({'title': title, 'link': link, 'date': date_str})
 
-              # 简化字符串拼接，避免YAML解析歧义
+              # 生成新的内容区域
               if posts:
                   post_lines = []
                   for post in posts:
@@ -103,50 +139,49 @@ jobs:
               else:
                   new_section = "<!-- BLOG-POST-LIST:START -->\n- ❌ 无法获取博客文章 / Unable to fetch blog posts\n<!-- BLOG-POST-LIST:END -->"
 
-              # 读写README文件
-              try:
-                  with open(README_PATH, 'r', encoding='utf-8') as f:
-                      content = f.read()
-              except FileNotFoundError:
-                  raise Exception(f"❌ 找不到文件: {README_PATH}")
-              except PermissionError:
-                  raise Exception(f"❌ 无读取权限: {README_PATH}")
+              # 批量更新所有目标文件
+              for file_path in TARGET_FILES:
+                  update_file_content(file_path, new_section)
 
-              # 替换内容（单行写法，避免YAML换行错误）
-              pattern = r'<!-- BLOG-POST-LIST:START -->.*?<!-- BLOG-POST-LIST:END -->'
-              new_content = re.sub(pattern, new_section, content, flags=re.DOTALL)
-
-              with open(README_PATH, 'w', encoding='utf-8') as f:
-                  f.write(new_content)
-
-              print(f"✅ 成功更新 {len(posts)} 篇博客文章")
+              print(f"✅ 成功获取并处理 {len(posts)} 篇博客文章")
 
           except Exception as e:
               print(f"❌ 执行出错: {str(e)}")
-              # 错误提示（单行拼接，无嵌套换行）
+              # 生成错误提示内容
               error_section = "<!-- BLOG-POST-LIST:START -->\n- ❌ 获取博客文章失败 / Failed to fetch blog posts\n<!-- BLOG-POST-LIST:END -->"
-              try:
-                  with open(README_PATH, 'r', encoding='utf-8') as f:
-                      content = f.read()
-                  new_content = re.sub(pattern, error_section, content, flags=re.DOTALL)
-                  with open(README_PATH, 'w', encoding='utf-8') as f:
-                      f.write(new_content)
-              except:
-                  pass
+              # 给所有目标文件写入错误提示
+              for file_path in TARGET_FILES:
+                  update_file_content(file_path, error_section)
               raise
           EOF
 
-      - name: Commit and push changes
+      - name: Commit and push current repo changes
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           git add README.md
           if git diff --cached --quiet; then
-              echo "ℹ️ 无修改，跳过提交"
+              echo "ℹ️ 当前仓库无修改，跳过提交"
           else
               git commit -m "🔄 Sync blog posts - $(date '+%Y-%m-%d %H:%M:%S') (CST)"
               git push || (sleep 5 && git push) || (sleep 10 && git push)
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        if: success()
+
+      - name: Commit and push blog repo changes
+        run: |
+          cd blog
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add source/about/index.md
+          if git diff --cached --quiet; then
+              echo "ℹ️ Blog仓库无修改，跳过提交"
+          else
+              git commit -m "🔄 Sync blog posts - $(date '+%Y-%m-%d %H:%M:%S') (CST)"
+              git push || (sleep 5 && git push) || (sleep 10 && git push)
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.BLOG_REPO_PAT }}
         if: success()
