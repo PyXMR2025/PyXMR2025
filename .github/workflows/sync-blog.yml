@@ -8,7 +8,7 @@ on:
     branches:
       - main
     paths:
-      - 'scripts/fetch_blog_posts.py'
+      - 'README.md'
 
 permissions:
   contents: write
@@ -22,6 +22,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
         
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -36,15 +38,74 @@ jobs:
           
       - name: Fetch and update blog posts
         run: |
-          mkdir -p scripts
-          python scripts/fetch_blog_posts.py
+          python << 'EOF'
+          import feedparser
+          import re
+          from datetime import datetime
+          
+          RSS_URL = "https://jackie.openenet.cn/atom.xml"
+          README_PATH = "README.md"
+          MAX_POSTS = 5
+          
+          try:
+              feed = feedparser.parse(RSS_URL)
+              posts = []
+              
+              for entry in feed.entries[:MAX_POSTS]:
+                  title = entry.get('title', 'No Title').strip()
+                  link = entry.get('link', '#').strip()
+                  published = entry.get('published', '')
+                  
+                  if published:
+                      try:
+                          date_obj = datetime.strptime(published[:10], '%Y-%m-%d')
+                          date_str = date_obj.strftime('%Y-%m-%d')
+                      except:
+                          date_str = published[:10]
+                  else:
+                      date_str = ''
+                  
+                  posts.append({
+                      'title': title,
+                      'link': link,
+                      'date': date_str
+                  })
+              
+              if posts:
+                  post_lines = []
+                  for post in posts:
+                      date_prefix = f"📅 {post['date']} " if post['date'] else ""
+                      post_lines.append(f"- {date_prefix}[{post['title']}]({post['link']})")
+                  
+                  new_section = f"""<!-- BLOG-POST-LIST:START -->
+          {"\n".join(post_lines)}
+          <!-- BLOG-POST-LIST:END -->"""
+              else:
+                  new_section = """<!-- BLOG-POST-LIST:START -->
+          - ❌ 无法获取博客文章 / Unable to fetch blog posts
+          <!-- BLOG-POST-LIST:END -->"""
+              
+              with open(README_PATH, 'r', encoding='utf-8') as f:
+                  content = f.read()
+              
+              pattern = r'<!-- BLOG-POST-LIST:START -->.*?<!-- BLOG-POST-LIST:END -->'
+              new_content = re.sub(pattern, new_section, content, flags=re.DOTALL)
+              
+              with open(README_PATH, 'w', encoding='utf-8') as f:
+                  f.write(new_content)
+              
+              print(f"✅ Successfully updated {len(posts) if posts else 0} blog posts")
+              
+          except Exception as e:
+              print(f"❌ Error: {{e}}")
+              raise
+          EOF
           
       - name: Commit and push changes
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git add README.md scripts/fetch_blog_posts.py
+          git add README.md
           git diff --quiet || git commit -m "🔄 Sync blog posts - $(date '+%Y-%m-%d %H:%M')"
           git push
         env:
