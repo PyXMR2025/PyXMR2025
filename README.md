@@ -135,11 +135,11 @@
 _自动获取自 [jackie.openenet.cn](https://jackie.openenet.cn) / Auto-fetched from blog_
 
 <!-- BLOG-POST-LIST:START -->
-- 📅 2026-02-18 [CI/CD实践：用GitHub Actions实现博客内容自动推送IndexNow](https://jackie.openenet.cn/cicd-actions-indexnow/)
+- 📅 2026-02-18 [GitHub Actions 实现博客自动推送 IndexNow · 搜索引擎快速收录教程](https://jackie.openenet.cn/cicd-actions-indexnow/)
 - 📅 2026-02-16 [【BA8AHF】如何让自己可刑可铐（六）：整活向｜全向宽带双锥天线，覆盖越广，“刑期”越长](https://jackie.openenet.cn/ham-ps-6/)
 - 📅 2026-02-16 [【BA8AHF】如何让自己可刑可铐（五）：整活向｜抛物面天线的灵魂 —— 馈源，决定增益与刑期的关键](https://jackie.openenet.cn/ham-ps-5/)
 - 📅 2026-02-13 [【BA8AHF】如何让自己可刑可铐（四）：整活向｜玩转倒置卡塞格伦天线，空战雷达级 “加刑” 拉满](https://jackie.openenet.cn/ham-ps-4/)
-- 📅 2026-02-12 [花生壳内网穿透 · NAT穿透教程 · 无公网IP访问内网指南+Cloudflare Tunnel对比](https://jackie.openenet.cn/oray-hsk-nat-traversal/)
+- 📅 2026-02-12 [花生壳内网穿透全教程 · 无公网 IP 访问内网服务实战](https://jackie.openenet.cn/oray-hsk-nat-traversal/)
 <!-- BLOG-POST-LIST:END -->
 
 </div>
