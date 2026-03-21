@@ -87,20 +87,6 @@
 
 ---
 
-## 💰 Ethereum Address | 以太坊地址
-
-<div align="center">
-
-### Ξ Ethereum / ERC-20 Tokens
-
-**`0x0DB7Db25Acf1e72C9eE0aC5ba79aA51761023D09`**
-
-[View on Etherscan](https://etherscan.io/address/0x0DB7Db25Acf1e72C9eE0aC5ba79aA51761023D09)
-
-</div>
-
----
-
 ## 📊 GitHub Stats | GitHub 统计数据
 
 <div align="center">
